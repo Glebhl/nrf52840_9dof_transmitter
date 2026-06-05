@@ -1,0 +1,242 @@
+#include <Adafruit_TinyUSB.h>
+#include <Arduino.h>
+
+#include "config.h"
+#include "NrfGpio.h"
+#include "I2CBus.h"
+#include "ICM45686.h"
+#include "QMC6309.h"
+#include "Tracker.h"
+#include "NrfRadio.h"
+#include "RadioPacket.h"
+
+// Set to 1 if the sensor module is powered from GPIOs
+// rather than a dedicated 3V3/GND rail.
+#define ENABLE_STACKED_POWER 1
+
+static I2CBus    i2c;
+static ICM45686  imu(i2c,
+                     TRACKER_ICM_ADDR_LSB ? 0x69 : 0x68,
+                     ICM45686::Config{ TRACKER_ACCEL_FSR_G, TRACKER_GYRO_FSR_DPS });
+static QMC6309   mag(i2c, TRACKER_QMC_ADDR);
+static Tracker   tracker(imu, mag);
+static NrfRadio  radio;
+
+// Hardware unique id, used as the over-the-air device id (the "MAC"). Read once
+// from FICR — no manually assigned constant needed, every board is distinct.
+static uint32_t  g_devId = 0;
+
+// Compile-time flag set describing which fields go on the air.
+static const uint8_t kTxFlags =
+      (SEND_QUAT  ? RadioLink::kQuat  : 0)
+    | (SEND_RPY   ? RadioLink::kRpy   : 0)
+    | (SEND_ACCEL ? RadioLink::kAccel : 0)
+    | (SEND_GYRO  ? RadioLink::kGyro  : 0)
+    | (SEND_TEMP  ? RadioLink::kTemp  : 0)
+    | (SEND_MAG   ? RadioLink::kMag   : 0);
+
+static uint16_t  g_seq = 0;
+
+static void waitForSerial() {
+  Serial.begin(TRACKER_SERIAL_BAUD);
+  const unsigned long start = millis();
+  while (!Serial && millis() - start < TRACKER_USB_WAIT_MS) {
+    delay(10);
+  }
+}
+
+static void enableStackedPower() {
+#if ENABLE_STACKED_POWER
+  Serial.println("Stacked power: VCC=P0.17 high, GND=P0.20 low");
+  NrfGpio::configureOutput(SENSOR_VCC, true);
+  NrfGpio::configureOutput(SENSOR_GND, false);
+  delay(100);
+#endif
+}
+
+// Blocking gyro-bias calibration. Keep the device perfectly still.
+static void runGyroCalibration() {
+  Serial.println("\nGYRO CAL: hold still...");
+  if (tracker.calibrateGyro()) {
+    const Calibration& c = tracker.calibration();
+    Serial.print("GYRO CAL ok, bias[dps] = ");
+    Serial.print(c.gyroBiasDps[0], 4); Serial.print(", ");
+    Serial.print(c.gyroBiasDps[1], 4); Serial.print(", ");
+    Serial.println(c.gyroBiasDps[2], 4);
+  } else {
+    Serial.println("GYRO CAL FAILED (device moved?), bias unchanged");
+  }
+}
+
+// Blocking hard/soft-iron magnetometer calibration. Rotate the device through
+// every orientation (figure-eights) until the window closes.
+static void runMagCalibration() {
+  Serial.println("\nMAG CAL: rotate through all orientations...");
+  tracker.beginMagCalibration();
+  const unsigned long start = millis();
+  while (millis() - start < TRACKER_MAG_CAL_MS) {
+    tracker.collectMagCalibration();
+    delay(10);
+  }
+  tracker.finishMagCalibration();
+
+  const Calibration& c = tracker.calibration();
+  Serial.print("MAG CAL ok, offset[G] = ");
+  Serial.print(c.magOffset[0], 5); Serial.print(", ");
+  Serial.print(c.magOffset[1], 5); Serial.print(", ");
+  Serial.print(c.magOffset[2], 5);
+  Serial.print(" | scale = ");
+  Serial.print(c.magScale[0], 4); Serial.print(", ");
+  Serial.print(c.magScale[1], 4); Serial.print(", ");
+  Serial.println(c.magScale[2], 4);
+}
+
+// A single click runs gyro calibration, then magnetometer calibration after a
+// short pause. Both are blocking; the radio stream simply resumes afterwards.
+static void runCalibrationSequence() {
+  runGyroCalibration();
+  delay(CAL_PHASE_GAP_MS);
+  runMagCalibration();
+  Serial.println("CAL done, resuming stream");
+}
+
+// Detect a click on the active-LOW button (D0). Returns true once per press
+// (on release, after a debounce), so a held button doesn't retrigger.
+static bool buttonClicked() {
+  static bool wasDown = false;
+  static unsigned long downAt = 0;
+
+  const bool down = (digitalRead(BUTTON_PIN) == LOW);
+  const unsigned long now = millis();
+
+  if (down && !wasDown) {
+    wasDown = true;
+    downAt = now;
+  } else if (!down && wasDown) {
+    wasDown = false;
+    if (now - downAt >= BUTTON_DEBOUNCE_MS) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// 'g' -> gyro calibration, 'm' -> magnetometer calibration, 'c' -> full sequence.
+static void handleSerialCommands() {
+  while (Serial.available() > 0) {
+    switch (Serial.read()) {
+      case 'g': case 'G': runGyroCalibration();     break;
+      case 'm': case 'M': runMagCalibration();      break;
+      case 'c': case 'C': runCalibrationSequence(); break;
+      default: break;
+    }
+  }
+}
+
+// Append `count` floats from `src` to the packet at `*pos`, advancing it.
+static inline void putFloats(uint8_t* pkt, uint8_t& pos, const float* src, uint8_t count) {
+  memcpy(&pkt[pos], src, count * sizeof(float));
+  pos += count * sizeof(float);
+}
+
+// Build and transmit one telemetry packet from the latest tracker state.
+static void sendTelemetry() {
+  uint8_t pkt[RadioLink::kMaxLen];
+  uint8_t pos = 0;
+
+  pkt[pos++] = RadioLink::kMagic;
+  pkt[pos++] = kTxFlags;
+  memcpy(&pkt[pos], &g_devId, sizeof(g_devId)); pos += sizeof(g_devId);
+  memcpy(&pkt[pos], &g_seq,   sizeof(g_seq));   pos += sizeof(g_seq);
+  g_seq++;
+
+  const Orientation& o = tracker.orientation();
+  const ImuSample&   s = tracker.imu();
+  const MagSample&   m = tracker.mag();
+
+#if SEND_QUAT
+  putFloats(pkt, pos, o.quaternion, 4);
+#endif
+#if SEND_RPY
+  const float rpy[3] = { o.roll_deg, o.pitch_deg, o.yaw_deg };
+  putFloats(pkt, pos, rpy, 3);
+#endif
+#if SEND_ACCEL
+  putFloats(pkt, pos, s.accel_g, 3);
+#endif
+#if SEND_GYRO
+  putFloats(pkt, pos, s.gyro_dps, 3);
+#endif
+#if SEND_TEMP
+  putFloats(pkt, pos, &s.temp_c, 1);
+#endif
+#if SEND_MAG
+  putFloats(pkt, pos, m.mag_g, 3);
+#endif
+
+  radio.send(pkt, pos);
+
+#if TRACKER_SERIAL_DEBUG
+  Serial.print("TX seq="); Serial.print(g_seq);
+  Serial.print(" RPY ");
+  Serial.print(o.roll_deg, 2);  Serial.print(", ");
+  Serial.print(o.pitch_deg, 2); Serial.print(", ");
+  Serial.println(o.yaw_deg, 2);
+#endif
+}
+
+void setup() {
+  waitForSerial();
+  Serial.println();
+  Serial.println("BOOT");
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  enableStackedPower();
+
+  i2c.begin(TRACKER_I2C_SDA_PIN, TRACKER_I2C_SCL_PIN, TRACKER_I2C_HZ);
+  Serial.println("TWIM0 ready");
+
+  if (!tracker.begin()) {
+    Serial.println("Tracker init FAILED (IMU or mag), halting.");
+    while (true) delay(1000);
+  }
+
+  Serial.print("ICM45686 WHO_AM_I = 0x");
+  Serial.println(imu.lastWhoAmI(), HEX);
+  if (imu.lastWhoAmI() != ICM45686::kWhoAmIValue) {
+    Serial.println("WARNING: unexpected WHO_AM_I (expected 0xE9)");
+  }
+  Serial.print("QMC6309 CHIP_ID = 0x");
+  Serial.println(mag.lastChipId(), HEX);
+
+  g_devId = NRF_FICR->DEVICEID[0];
+  radio.beginTx();
+  Serial.print("RADIO TX ready, devId = 0x");
+  Serial.print(g_devId, HEX);
+  Serial.print(", flags = 0x");
+  Serial.println(kTxFlags, HEX);
+
+  Serial.println("Button D0: click = gyro+mag cal. Serial: g/m/c.");
+  Serial.println("START STREAMING");
+}
+
+void loop() {
+  handleSerialCommands();
+
+  if (buttonClicked()) {
+    runCalibrationSequence();
+  }
+
+  const I2CBus::Status st = tracker.update();
+  if (st != I2CBus::Status::Ok) {
+    Serial.print("read error: ");
+    Serial.println(I2CBus::statusName(st));
+    delay(500);
+    return;
+  }
+
+  sendTelemetry();
+
+  delay(TELEMETRY_SEND_INTERVAL_MS);
+}
