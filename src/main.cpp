@@ -9,6 +9,7 @@
 #include "Tracker.h"
 #include "NrfRadio.h"
 #include "RadioPacket.h"
+#include "Button.h"
 
 // Set to 1 if the sensor module is powered from GPIOs
 // rather than a dedicated 3V3/GND rail.
@@ -21,6 +22,15 @@ static ICM45686  imu(i2c,
 static QMC6309   mag(i2c, TRACKER_QMC_ADDR);
 static Tracker   tracker(imu, mag);
 static NrfRadio  radio;
+
+static Button::Config makeButtonConfig() {
+  Button::Config c;
+  c.debounceMs       = BUTTON_DEBOUNCE_MS;
+  c.doubleClickGapMs = BUTTON_DOUBLE_CLICK_GAP_MS;
+  c.longPressMs      = BUTTON_LONG_PRESS_MS;
+  return c;
+}
+static Button    button(BUTTON_PIN, makeButtonConfig());
 
 // Hardware unique id, used as the over-the-air device id (the "MAC"). Read once
 // from FICR — no manually assigned constant needed, every board is distinct.
@@ -100,27 +110,6 @@ static void runCalibrationSequence() {
   Serial.println("CAL done, resuming stream");
 }
 
-// Detect a click on the active-LOW button (D0). Returns true once per press
-// (on release, after a debounce), so a held button doesn't retrigger.
-static bool buttonClicked() {
-  static bool wasDown = false;
-  static unsigned long downAt = 0;
-
-  const bool down = (digitalRead(BUTTON_PIN) == LOW);
-  const unsigned long now = millis();
-
-  if (down && !wasDown) {
-    wasDown = true;
-    downAt = now;
-  } else if (!down && wasDown) {
-    wasDown = false;
-    if (now - downAt >= BUTTON_DEBOUNCE_MS) {
-      return true;
-    }
-  }
-  return false;
-}
-
 // 'g' -> gyro calibration, 'm' -> magnetometer calibration, 'c' -> full sequence.
 static void handleSerialCommands() {
   while (Serial.available() > 0) {
@@ -190,7 +179,12 @@ void setup() {
   Serial.println();
   Serial.println("BOOT");
 
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  // Button actions. One click = full calibration sequence. Double click and
+  // long press are reserved hooks — assign them as the feature set grows.
+  button.begin();
+  button.onClick(runCalibrationSequence);
+  // button.onDoubleClick(...);
+  // button.onLongPress(...);
 
   enableStackedPower();
 
@@ -223,10 +217,7 @@ void setup() {
 
 void loop() {
   handleSerialCommands();
-
-  if (buttonClicked()) {
-    runCalibrationSequence();
-  }
+  button.update();
 
   const I2CBus::Status st = tracker.update();
   if (st != I2CBus::Status::Ok) {

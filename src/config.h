@@ -45,11 +45,16 @@
 #define TRACKER_USB_WAIT_MS 3000
 
 // --- Calibration button -----------------------------------------------------
-// One click runs gyro calibration, then (after a short pause) magnetometer
-// calibration. Active LOW (INPUT_PULLUP, pressed = LOW).
+// Handled by the Button API (see Button.h). One click runs gyro calibration,
+// then (after a short pause) magnetometer calibration. Double click / long
+// press are wired in main.cpp and free to extend. Active LOW (INPUT_PULLUP).
 #define BUTTON_PIN 6  // P0.06
 // Debounce / minimum press time before a click registers (ms).
 #define BUTTON_DEBOUNCE_MS 40
+// Max gap between two clicks to count as a double click (ms).
+#define BUTTON_DOUBLE_CLICK_GAP_MS 300
+// Hold time that registers a long press (ms).
+#define BUTTON_LONG_PRESS_MS 800
 // Pause between the gyro and magnetometer calibration phases (ms).
 #define CAL_PHASE_GAP_MS 1500
 
