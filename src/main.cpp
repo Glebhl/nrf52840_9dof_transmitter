@@ -10,10 +10,8 @@
 #include "NrfRadio.h"
 #include "RadioPacket.h"
 #include "Button.h"
-
-// Set to 1 if the sensor module is powered from GPIOs
-// rather than a dedicated 3V3/GND rail.
-#define ENABLE_STACKED_POWER 1
+#include "Power.h"
+#include "Led.h"
 
 static I2CBus    i2c;
 static ICM45686  imu(i2c,
@@ -55,16 +53,7 @@ static void waitForSerial() {
   }
 }
 
-static void enableStackedPower() {
-#if ENABLE_STACKED_POWER
-  Serial.println("Stacked power: VCC=P0.17 high, GND=P0.20 low");
-  NrfGpio::configureOutput(SENSOR_VCC, true);
-  NrfGpio::configureOutput(SENSOR_GND, false);
-  delay(100);
-#endif
-}
-
-// Blocking gyro-bias calibration. Keep the device perfectly still.
+// Blocking gyro-bias calibration.
 static void runGyroCalibration() {
   Serial.println("\nGYRO CAL: hold still...");
   if (tracker.calibrateGyro()) {
@@ -78,8 +67,7 @@ static void runGyroCalibration() {
   }
 }
 
-// Blocking hard/soft-iron magnetometer calibration. Rotate the device through
-// every orientation (figure-eights) until the window closes.
+// Blocking hard/soft-iron magnetometer calibration.
 static void runMagCalibration() {
   Serial.println("\nMAG CAL: rotate through all orientations...");
   tracker.beginMagCalibration();
@@ -175,18 +163,27 @@ static void sendTelemetry() {
 }
 
 void setup() {
+  Led::init();
+  Led::set(true);
+
   waitForSerial();
   Serial.println();
   Serial.println("BOOT");
 
-  // Button actions. One click = full calibration sequence. Double click and
-  // long press are reserved hooks — assign them as the feature set grows.
+  // Button actions.
   button.begin();
   button.onClick(runCalibrationSequence);
+  button.onLongPress(Power::goToSleep);
   // button.onDoubleClick(...);
-  // button.onLongPress(...);
 
-  enableStackedPower();
+  // Wait for the button to be released.
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    while (digitalRead(BUTTON_PIN) == LOW) delay(10);
+    delay(BUTTON_DEBOUNCE_MS);
+    button.begin();
+  }
+
+  Power::enableStackedPower();
 
   i2c.begin(TRACKER_I2C_SDA_PIN, TRACKER_I2C_SCL_PIN, TRACKER_I2C_HZ);
   Serial.println("TWIM0 ready");
@@ -211,7 +208,7 @@ void setup() {
   Serial.print(", flags = 0x");
   Serial.println(kTxFlags, HEX);
 
-  Serial.println("Button D0: click = gyro+mag cal. Serial: g/m/c.");
+  Serial.println("Button D0: click = gyro+mag cal, long press = deep sleep");
   Serial.println("START STREAMING");
 }
 

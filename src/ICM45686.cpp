@@ -4,7 +4,7 @@
 
 namespace {
 
-// --- ICM45686 User Bank 0 registers ---------------------------------------
+// --- ICM45686 User Bank 0 registers -----------------------------------------
 constexpr uint8_t REG_ACCEL_DATA_X1 = 0x00;  // start of the 14-byte data block
 constexpr uint8_t REG_PWR_MGMT0     = 0x10;
 constexpr uint8_t REG_ACCEL_CONFIG0 = 0x1B;
@@ -14,7 +14,7 @@ constexpr uint8_t REG_FIFO_CONFIG3  = 0x21;
 constexpr uint8_t REG_WHO_AM_I      = 0x72;
 constexpr uint8_t REG_IREG_ADDR_HI  = 0x7C;  // indirect-access burst start
 
-// --- Indirect (IREG) banks, SlimeVR style ----------------------------------
+// --- Indirect (IREG) banks, -------------------------------------------------
 constexpr uint8_t IPREG_BAR        = 0xA0;
 constexpr uint8_t IPREG_BAR_REG_58 = 0x3A;
 constexpr uint8_t IPREG_BAR_REG_59 = 0x3B;
@@ -68,7 +68,7 @@ bool ICM45686::begin() {
   gyroScale_  = (float)config_.gyroFsrDps / kFullScaleCounts;
 
   // A dummy read wakes the I2C interface; the first access after power-up can
-  // be flaky, so the WHO_AM_I probe gets one retry (SlimeVR scan behaviour).
+  // be flaky, so the WHO_AM_I probe gets one retry.
   uint8_t dummy = 0;
   bus_.readRegister(address_, REG_ACCEL_DATA_X1, &dummy);
   delayMicroseconds(100);
@@ -80,7 +80,7 @@ bool ICM45686::begin() {
     if (s != S::Ok) return false;
   }
 
-  // Disable internal AP pull resistors (SlimeVR tuning).
+  // Disable internal AP pull resistors.
   if (writeIreg(IPREG_BAR, IPREG_BAR_REG_58, 0xD9 & ~0x48) != S::Ok) return false;
   if (writeIreg(IPREG_BAR, IPREG_BAR_REG_59, 0xB6 & ~0x92) != S::Ok) return false;
 

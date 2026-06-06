@@ -15,7 +15,7 @@ constexpr uint8_t REG_CTRL2   = 0x0B;
 constexpr uint8_t STATUS_DRDY = 0x01;  // data ready
 constexpr uint8_t STATUS_OVFL = 0x02;  // measurement overflow
 
-// --- Configuration (SlimeVR values) -----------------------------------------
+// --- Configuration ----------------------------------------------------------
 // CTRL2: ODR_100Hz (3 << 4) | RNG_8G (2 << 2) | SET_RESET_ON (0).
 constexpr uint8_t CTRL2_VALUE = 0x38;
 // CTRL1: LPF_2 (1 << 5) | OSR_8 (0 << 3) | MODE_CONTINUOUS (3).

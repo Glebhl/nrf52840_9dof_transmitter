@@ -22,9 +22,12 @@
 #define TRACKER_QMC_ADDR 0x7C
 
 // --- Sensor power -----------------------------------------------------------
-// SlimeVR stacked module powered from GPIOs instead of a dedicated rail.
+// Stacked module powered from GPIOs instead of a dedicated rail.
 #define SENSOR_VCC 17  // P0.17 driven high
 #define SENSOR_GND 20  // P0.20 driven low
+// Set to 1 if the sensor module is powered from GPIOs
+// rather than a dedicated 3V3/GND rail.
+#define ENABLE_STACKED_POWER 1
 
 // --- Fusion (Mahony AHRS) ---------------------------------------------------
 // Kp: how strongly the accel/mag references pull the integrated estimate.
@@ -57,6 +60,13 @@
 #define BUTTON_LONG_PRESS_MS 800
 // Pause between the gyro and magnetometer calibration phases (ms).
 #define CAL_PHASE_GAP_MS 1500
+
+// --- Status LED (temporary indicator) ---------------------------------------
+// Red on-board LED used as a coarse run/sleep indicator: solid ON while awake,
+// OFF in deep sleep. Driven with plain digitalWrite from main.cpp so the whole
+// thing is trivial to rip out later. Adjust the pin / polarity for your board.
+#define STATUS_LED_PIN         LED_BUILTIN  // P0.15 on the nice!nano / SuperMini
+#define STATUS_LED_ACTIVE_HIGH 1            // most boards: LED lights when pin LOW
 
 // --- Radio telemetry selection ----------------------------------------------
 // Which fields this transmitter puts on the air. Each is a float group; the

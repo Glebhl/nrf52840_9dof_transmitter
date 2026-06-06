@@ -28,8 +28,7 @@ inline volatile uint32_t* pinConfig(uint32_t pin) {
   return &NRF_P1->PIN_CNF[pin - 32];
 }
 
-// Configure a pin as an open-drain I2C line with no internal pull-up
-// (external pull-ups expected, SlimeVR style).
+// Configure a pin as an open-drain I2C line with no internal pull-up.
 inline void configureI2cPin(uint32_t pin) {
   *pinConfig(pin) =
       ((uint32_t)GPIO_PIN_CNF_DIR_Input      << GPIO_PIN_CNF_DIR_Pos)
