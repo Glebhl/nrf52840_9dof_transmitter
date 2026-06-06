@@ -8,8 +8,8 @@ The whole project is made up of three repositories:
 
 | Component | Repo | Role |
 |-----------|------|------|
-| Transmitter | [nrf52840_9dof_transmitter](https://github.com/Glebhl/nrf52840_9dof_transmitter) | Worn tracker(s) |
-| **Receiver / USB dongle (this repo)** | [nrf52840_9dof_receiver](https://github.com/Glebhl/nrf52840_9dof_receiver) | Listens to all trackers and bridges packets to USB |
+| **Transmitter (this repo)** | [nrf52840_9dof_transmitter](https://github.com/Glebhl/nrf52840_9dof_transmitter) | Worn tracker(s) |
+| Receiver / USB dongle (this repo) | [nrf52840_9dof_receiver](https://github.com/Glebhl/nrf52840_9dof_receiver) | Listens to all trackers and bridges packets to USB |
 | SteamVR driver | [nrf52840_steamvr_driver](https://github.com/Glebhl/nrf52840_steamvr_driver) | OpenVR driver for SteamVR |
 
 ```
