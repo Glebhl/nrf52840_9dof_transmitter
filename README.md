@@ -8,14 +8,14 @@ The whole project is made up of three repositories:
 
 | Component | Repo | Role |
 |-----------|------|------|
-| **Transmitter (this repo)** | [nrf52840_9dof_transmitter](https://github.com/Glebhl/nrf52840_9dof_transmitter) | Worn tracker(s): sense → fuse → transmit |
-| Receiver / USB dongle | [nrf52840_9dof_receiver](https://github.com/Glebhl/nrf52840_9dof_receiver) | Listens to all trackers, bridges packets to USB serial |
-| SteamVR driver | [nrf52840_steamvr_driver](https://github.com/Glebhl/nrf52840_steamvr_driver) | OpenVR driver that exposes the trackers to SteamVR |
+| Transmitter | [nrf52840_9dof_transmitter](https://github.com/Glebhl/nrf52840_9dof_transmitter) | Worn tracker(s) |
+| **Receiver / USB dongle (this repo)** | [nrf52840_9dof_receiver](https://github.com/Glebhl/nrf52840_9dof_receiver) | Listens to all trackers and bridges packets to USB |
+| SteamVR driver | [nrf52840_steamvr_driver](https://github.com/Glebhl/nrf52840_steamvr_driver) | OpenVR driver for SteamVR |
 
 ```
-  ┌──────────────┐   2.4 GHz radio    ┌────────────┐   USB serial    ┌──────────────┐
-  │  Tracker(s)  │  ───────────────>  │  Receiver  │  ────────────>  │ SteamVR      │
-  │  (this repo) │    many → one      │  dongle    │  binary frames  │ driver (DLL) │
+  ┌──────────────┐                    ┌────────────┐                 ┌──────────────┐
+  │  Tracker(s)  │   2.4 GHz radio    │  Receiver  │   USB serial    │ SteamVR      │
+  │  (this repo) │  ───────────────>  │  dongle    │  ────────────>  │ driver (DLL) │
   └──────────────┘                    └────────────┘                 └──────────────┘
 ```
 
