@@ -44,25 +44,23 @@ I2CBus::Status Tracker::update() {
 
   // Guard against the seed step (dt == 0) and pathological gaps (> 1 s).
   if (dt > 0.0f && dt < 1.0f) {
-    float gyroRad[3];
-    gyroRad[1] =  imuSample.gyro_dps[0] * kDegToRad;  // X
-    gyroRad[0] =  imuSample.gyro_dps[1] * kDegToRad;  // Y
-    gyroRad[2] =  imuSample.gyro_dps[2] * kDegToRad;  // Z (yaw уже верный)
+    const float gyroRadAligned[3] = {
+       -imuSample.gyro_dps[0] * kDegToRad,
+       -imuSample.gyro_dps[1] * kDegToRad,
+       -imuSample.gyro_dps[2] * kDegToRad,
+    };
 
     if (haveMag) {
-      // The QMC6309 sits in a different frame than the ICM45686. Its axes are a
-      // cyclic permutation of the IMU axes (IMU X = mag Y, IMU Y = mag Z,
-      // IMU Z = mag X), so remap into the IMU frame before fusing. The cycle is
-      // a proper rotation (no handedness flip). If yaw runs away or locks the
-      // wrong way, flip the sign of the offending axis (see note below).
+      // With the gyro sign convention used by the AHRS, the QMC6309 field
+      // dynamics match the raw QMC axis order/signs.
       const float magAligned[3] = {
-        magSample.mag_g[1],  // IMU X  <- mag Y
-        magSample.mag_g[2],  // IMU Y  <- mag Z
-        magSample.mag_g[0],  // IMU Z  <- mag X
+        magSample.mag_g[0],
+        magSample.mag_g[1],
+        magSample.mag_g[2],
       };
-      fusion_.update(gyroRad, imuSample.accel_g, magAligned, dt);
+      fusion_.update(gyroRadAligned, imuSample.accel_g, magAligned, dt);
     } else {
-      fusion_.updateIMU(gyroRad, imuSample.accel_g, dt);
+      fusion_.updateIMU(gyroRadAligned, imuSample.accel_g, dt);
     }
   }
 

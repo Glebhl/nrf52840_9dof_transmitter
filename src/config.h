@@ -32,8 +32,8 @@
 // --- Fusion (Mahony AHRS) ---------------------------------------------------
 // Kp: how strongly the accel/mag references pull the integrated estimate.
 // Ki: gyro-bias rejection (0 disables the integral term).
-#define TRACKER_FUSION_KP 1.0f
-#define TRACKER_FUSION_KI 0.05f
+#define TRACKER_FUSION_KP 3.0f
+#define TRACKER_FUSION_KI 0.0f  // 0.05f
 
 // --- Calibration ------------------------------------------------------------
 // Gyro bias: samples averaged while still, and the max peak-to-peak spread
@@ -72,12 +72,12 @@
 // Which fields this transmitter puts on the air. Each is a float group; the
 // receiver decodes whatever is flagged in each packet, so transmitters need not
 // agree. Keep packets lean — only enable what the host actually consumes.
-#define SEND_QUAT  1  // quaternion w,x,y,z      (4 floats)
-#define SEND_RPY   0  // roll, pitch, yaw [deg]  (3 floats)
-#define SEND_ACCEL 0  // accel x,y,z [g]         (3 floats)
-#define SEND_GYRO  0  // gyro x,y,z [deg/s]      (3 floats)
+#define SEND_QUAT  0  // quaternion w,x,y,z      (4 floats)
+#define SEND_RPY   1  // roll, pitch, yaw [deg]  (3 floats)
+#define SEND_ACCEL 1  // accel x,y,z [g]         (3 floats)
+#define SEND_GYRO  1  // gyro x,y,z [deg/s]      (3 floats)
 #define SEND_TEMP  0  // temperature [C]         (1 float)
-#define SEND_MAG   0  // mag x,y,z [Gauss]       (3 floats)
+#define SEND_MAG   1  // mag x,y,z [Gauss]       (3 floats)
 
 // Interval for sending data to the receiver in milliseconds 
 #define TELEMETRY_SEND_INTERVAL_MS 20
