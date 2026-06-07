@@ -43,6 +43,13 @@
 // Magnetometer hard/soft-iron: how long to collect samples while rotating.
 #define TRACKER_MAG_CAL_MS 15000UL
 
+// --- Persistent storage (internal flash via LittleFS) -----------------------
+// Calibration is saved here so it survives power cycles. Key is the record name
+// on the internal filesystem; bump the version whenever the Calibration struct
+// layout changes so stale saves are ignored instead of misread.
+#define CALIBRATION_STORAGE_KEY     "cal"
+#define CALIBRATION_STORAGE_VERSION 1
+
 // --- Serial -----------------------------------------------------------------
 #define TRACKER_SERIAL_BAUD 921600
 #define TRACKER_USB_WAIT_MS 3000

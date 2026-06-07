@@ -12,6 +12,7 @@
 #include "Button.h"
 #include "Power.h"
 #include "Led.h"
+#include "CalibrationStore.h"
 
 static I2CBus    i2c;
 static ICM45686  imu(i2c,
@@ -30,8 +31,7 @@ static Button::Config makeButtonConfig() {
 }
 static Button    button(BUTTON_PIN, makeButtonConfig());
 
-// Hardware unique id, used as the over-the-air device id (the "MAC"). Read once
-// from FICR — no manually assigned constant needed, every board is distinct.
+// Hardware unique id, used as the over-the-air device id (the "MAC").
 static uint32_t  g_devId = 0;
 
 // Compile-time flag set describing which fields go on the air.
@@ -89,22 +89,52 @@ static void runMagCalibration() {
   Serial.println(c.magScale[2], 4);
 }
 
-// A single click runs gyro calibration, then magnetometer calibration after a
-// short pause. Both are blocking; the radio stream simply resumes afterwards.
+// Persist the active calibration to internal flash so it survives reboots.
+static void saveCalibration() {
+  if (CalibrationStore::save(tracker.calibration())) {
+    Serial.println("CAL saved to flash");
+  } else {
+    Serial.println("CAL save FAILED");
+  }
+}
+
+// Pull a stored calibration (if any) from flash into the tracker.
+static void loadCalibration() {
+  Calibration c;  // identity defaults
+  if (CalibrationStore::load(c)) {
+    tracker.setCalibration(c);
+    Serial.print("CAL loaded from flash, gyro bias[dps] = ");
+    Serial.print(c.gyroBiasDps[0], 4); Serial.print(", ");
+    Serial.print(c.gyroBiasDps[1], 4); Serial.print(", ");
+    Serial.println(c.gyroBiasDps[2], 4);
+  } else {
+    Serial.println("CAL none stored, using defaults");
+  }
+}
+
+// Drop the stored calibration; the next boot starts from defaults.
+static void clearCalibration() {
+  Serial.println(CalibrationStore::clear() ? "CAL cleared from flash"
+                                           : "CAL nothing to clear");
+}
+
 static void runCalibrationSequence() {
   runGyroCalibration();
   delay(CAL_PHASE_GAP_MS);
   runMagCalibration();
+  saveCalibration();
   Serial.println("CAL done, resuming stream");
 }
 
-// 'g' -> gyro calibration, 'm' -> magnetometer calibration, 'c' -> full sequence.
 static void handleSerialCommands() {
   while (Serial.available() > 0) {
     switch (Serial.read()) {
-      case 'g': case 'G': runGyroCalibration();     break;
-      case 'm': case 'M': runMagCalibration();      break;
+      case 'g': case 'G': runGyroCalibration(); break;
+      case 'm': case 'M': runMagCalibration(); break;
       case 'c': case 'C': runCalibrationSequence(); break;
+      case 's': case 'S': saveCalibration();        break;
+      case 'l': case 'L': loadCalibration();        break;
+      case 'x': case 'X': clearCalibration();       break;
       default: break;
     }
   }
@@ -201,6 +231,10 @@ void setup() {
   Serial.print("QMC6309 CHIP_ID = 0x");
   Serial.println(mag.lastChipId(), HEX);
 
+  // Restore a previously saved calibration (if any) before streaming starts.
+  CalibrationStore::begin();
+  loadCalibration();
+
   g_devId = NRF_FICR->DEVICEID[0];
   radio.beginTx();
   Serial.print("RADIO TX ready, devId = 0x");
@@ -208,7 +242,9 @@ void setup() {
   Serial.print(", flags = 0x");
   Serial.println(kTxFlags, HEX);
 
-  Serial.println("Button D0: click = gyro+mag cal, long press = deep sleep");
+  Serial.println("Button D0: click = gyro+mag cal (auto-save), "
+                 "double click = save cal, long press = deep sleep");
+  Serial.println("Serial: g/m/c cal, s=save l=load x=clear");
   Serial.println("START STREAMING");
 }
 
