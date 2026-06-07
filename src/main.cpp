@@ -119,6 +119,7 @@ static void clearCalibration() {
 }
 
 static void runCalibrationSequence() {
+  delay(CAL_START_DELAY_MS);
   runGyroCalibration();
   delay(CAL_PHASE_GAP_MS);
   runMagCalibration();
@@ -129,8 +130,8 @@ static void runCalibrationSequence() {
 static void handleSerialCommands() {
   while (Serial.available() > 0) {
     switch (Serial.read()) {
-      case 'g': case 'G': runGyroCalibration(); break;
-      case 'm': case 'M': runMagCalibration(); break;
+      case 'g': case 'G': runGyroCalibration();     break;
+      case 'm': case 'M': runMagCalibration();      break;
       case 'c': case 'C': runCalibrationSequence(); break;
       case 's': case 'S': saveCalibration();        break;
       case 'l': case 'L': loadCalibration();        break;
@@ -202,9 +203,9 @@ void setup() {
 
   // Button actions.
   button.begin();
-  button.onClick(runCalibrationSequence);
+  // button.onClick(...);
+  button.onDoubleClick(runCalibrationSequence);
   button.onLongPress(Power::goToSleep);
-  // button.onDoubleClick(...);
 
   // Wait for the button to be released.
   if (digitalRead(BUTTON_PIN) == LOW) {

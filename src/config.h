@@ -54,7 +54,7 @@
 #define TRACKER_SERIAL_BAUD 921600
 #define TRACKER_USB_WAIT_MS 3000
 
-// --- Calibration button -----------------------------------------------------
+// --- Control button ---------------------------------------------------------
 // Handled by the Button API (see Button.h). One click runs gyro calibration,
 // then (after a short pause) magnetometer calibration. Double click / long
 // press are wired in main.cpp and free to extend. Active LOW (INPUT_PULLUP).
@@ -67,6 +67,8 @@
 #define BUTTON_LONG_PRESS_MS 800
 // Pause between the gyro and magnetometer calibration phases (ms).
 #define CAL_PHASE_GAP_MS 1500
+// Delay before the calibration (ms).
+#define CAL_START_DELAY_MS 500
 
 // --- Status LED (temporary indicator) ---------------------------------------
 // Red on-board LED used as a coarse run/sleep indicator: solid ON while awake,
