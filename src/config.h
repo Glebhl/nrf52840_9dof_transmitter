@@ -16,7 +16,7 @@
 // Address select: false = 0x68, true = 0x69.
 #define TRACKER_ICM_ADDR_LSB true
 #define TRACKER_ACCEL_FSR_G  16    // ±g    (supported: 2 / 4 / 8 / 16 / 32)
-#define TRACKER_GYRO_FSR_DPS 2000  // ±dps  (supported: 125 / 250 / 500 / 1000 / 2000 / 4000)
+#define TRACKER_GYRO_FSR_DPS 1000  // ±dps  (supported: 125 / 250 / 500 / 1000 / 2000 / 4000)
 
 // --- QMC6309 magnetometer ---------------------------------------------------
 #define TRACKER_QMC_ADDR 0x7C
@@ -81,12 +81,12 @@
 // Which fields this transmitter puts on the air. Each is a float group; the
 // receiver decodes whatever is flagged in each packet, so transmitters need not
 // agree. Keep packets lean — only enable what the host actually consumes.
-#define SEND_QUAT  0  // quaternion w,x,y,z      (4 floats)
-#define SEND_RPY   1  // roll, pitch, yaw [deg]  (3 floats)
-#define SEND_ACCEL 1  // accel x,y,z [g]         (3 floats)
-#define SEND_GYRO  1  // gyro x,y,z [deg/s]      (3 floats)
+#define SEND_QUAT  1  // quaternion w,x,y,z      (4 floats)
+#define SEND_RPY   0  // roll, pitch, yaw [deg]  (3 floats)
+#define SEND_ACCEL 0  // accel x,y,z [g]         (3 floats)
+#define SEND_GYRO  0  // gyro x,y,z [deg/s]      (3 floats)
 #define SEND_TEMP  0  // temperature [C]         (1 float)
-#define SEND_MAG   1  // mag x,y,z [Gauss]       (3 floats)
+#define SEND_MAG   0  // mag x,y,z [Gauss]       (3 floats)
 
 // Interval for sending data to the receiver in milliseconds 
 #define TELEMETRY_SEND_INTERVAL_MS 20
