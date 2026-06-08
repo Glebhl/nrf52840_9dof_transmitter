@@ -5,19 +5,44 @@
 namespace {
 constexpr float kDegToRad = 0.017453292519943295f;
 
-constexpr uint8_t kAccelAxisSource[3] = TRACKER_ACCEL_AXIS_MAP;
-constexpr int8_t kAccelAxisSign[3] = TRACKER_ACCEL_AXIS_SIGN;
-constexpr uint8_t kGyroAxisSource[3] = TRACKER_GYRO_AXIS_MAP;
-constexpr int8_t kGyroAxisSign[3] = TRACKER_GYRO_AXIS_SIGN;
-constexpr uint8_t kMagAxisSource[3] = TRACKER_MAG_AXIS_MAP;
-constexpr int8_t kMagAxisSign[3] = TRACKER_MAG_AXIS_SIGN;
-constexpr uint8_t kBodyAxisSource[3] = TRACKER_BODY_AXIS_MAP;
-constexpr int8_t kBodyAxisSign[3] = TRACKER_BODY_AXIS_SIGN;
+// A single axis remap: output axis i = input axis src[i], scaled by sign[i].
+struct AxisTransform {
+  uint8_t src[3];
+  int8_t  sign[3];
+};
 
-void applyAxisMap(float v[3], const uint8_t source[3], const int8_t sign[3]) {
-  const float raw[3] = {v[0], v[1], v[2]};
+// Fold the per-sensor map and the shared body map into one remap, so each
+// sample is rotated in a single pass instead of two. The result is identical
+// to applying the per-sensor map and then the body map in sequence:
+//   v -> body(sensor(v))
+AxisTransform compose(const uint8_t sSrc[3], const int8_t sSign[3],
+                      const uint8_t bSrc[3], const int8_t bSign[3]) {
+  AxisTransform t{};
   for (int i = 0; i < 3; ++i) {
-    v[i] = raw[source[i]] * sign[i];
+    const uint8_t mid = bSrc[i];
+    t.src[i]  = sSrc[mid];
+    t.sign[i] = static_cast<int8_t>(sSign[mid] * bSign[i]);
+  }
+  return t;
+}
+
+const uint8_t kAccelSrc[3]  = TRACKER_ACCEL_AXIS_MAP;
+const int8_t  kAccelSign[3] = TRACKER_ACCEL_AXIS_SIGN;
+const uint8_t kGyroSrc[3]   = TRACKER_GYRO_AXIS_MAP;
+const int8_t  kGyroSign[3]  = TRACKER_GYRO_AXIS_SIGN;
+const uint8_t kMagSrc[3]    = TRACKER_MAG_AXIS_MAP;
+const int8_t  kMagSign[3]   = TRACKER_MAG_AXIS_SIGN;
+const uint8_t kBodySrc[3]   = TRACKER_BODY_AXIS_MAP;
+const int8_t  kBodySign[3]  = TRACKER_BODY_AXIS_SIGN;
+
+const AxisTransform kAccelXf = compose(kAccelSrc, kAccelSign, kBodySrc, kBodySign);
+const AxisTransform kGyroXf  = compose(kGyroSrc, kGyroSign, kBodySrc, kBodySign);
+const AxisTransform kMagXf   = compose(kMagSrc, kMagSign, kBodySrc, kBodySign);
+
+void applyTransform(float v[3], const AxisTransform& t) {
+  const float in[3] = {v[0], v[1], v[2]};
+  for (int i = 0; i < 3; ++i) {
+    v[i] = in[t.src[i]] * t.sign[i];
   }
 }
 }  // namespace
@@ -103,16 +128,10 @@ void Tracker::applyCalibration(ImuSample& imuSample, MagSample& magSample,
 
 void Tracker::alignAxes(ImuSample& imuSample, MagSample& magSample,
                         bool haveMag) const {
-  applyAxisMap(imuSample.accel_g, kAccelAxisSource, kAccelAxisSign);
-  applyAxisMap(imuSample.gyro_dps, kGyroAxisSource, kGyroAxisSign);
+  applyTransform(imuSample.accel_g, kAccelXf);
+  applyTransform(imuSample.gyro_dps, kGyroXf);
   if (haveMag) {
-    applyAxisMap(magSample.mag_g, kMagAxisSource, kMagAxisSign);
-  }
-
-  applyAxisMap(imuSample.accel_g, kBodyAxisSource, kBodyAxisSign);
-  applyAxisMap(imuSample.gyro_dps, kBodyAxisSource, kBodyAxisSign);
-  if (haveMag) {
-    applyAxisMap(magSample.mag_g, kBodyAxisSource, kBodyAxisSign);
+    applyTransform(magSample.mag_g, kMagXf);
   }
 }
 
