@@ -48,8 +48,8 @@
 // the normal knob for rotating the mounted tracker by one or more 90-degree
 // turns. It applies to accel, gyro, and mag together.
 //
-// The fusion now runs in a Y-up world frame (see MahonyAHRS.cpp), matching the
-// HTML test console: +X = right, +Y = up, +Z = toward viewer (back). This map
+// The fusion now runs in the SteamVR/OpenVR Y-up world frame (see
+// MahonyAHRS.cpp): +X = right, +Y = up, +Z = back (-Z forward). This map
 // rotates the raw chip frame (chip +X = forward, +Y = left, +Z = up) into that
 // body frame so a level tracker reports the identity quaternion:
 //   body +X (right) = -chip Y     body +Y (up) = +chip Z     body +Z (back) = -chip X
