@@ -4,6 +4,22 @@
 
 namespace {
 constexpr float kDegToRad = 0.017453292519943295f;
+
+constexpr uint8_t kAccelAxisSource[3] = TRACKER_ACCEL_AXIS_MAP;
+constexpr int8_t kAccelAxisSign[3] = TRACKER_ACCEL_AXIS_SIGN;
+constexpr uint8_t kGyroAxisSource[3] = TRACKER_GYRO_AXIS_MAP;
+constexpr int8_t kGyroAxisSign[3] = TRACKER_GYRO_AXIS_SIGN;
+constexpr uint8_t kMagAxisSource[3] = TRACKER_MAG_AXIS_MAP;
+constexpr int8_t kMagAxisSign[3] = TRACKER_MAG_AXIS_SIGN;
+constexpr uint8_t kBodyAxisSource[3] = TRACKER_BODY_AXIS_MAP;
+constexpr int8_t kBodyAxisSign[3] = TRACKER_BODY_AXIS_SIGN;
+
+void applyAxisMap(float v[3], const uint8_t source[3], const int8_t sign[3]) {
+  const float raw[3] = {v[0], v[1], v[2]};
+  for (int i = 0; i < 3; ++i) {
+    v[i] = raw[source[i]] * sign[i];
+  }
+}
 }  // namespace
 
 bool Tracker::begin() {
@@ -28,6 +44,7 @@ I2CBus::Status Tracker::update() {
   }
 
   applyCalibration(imuSample, magSample, haveMag);
+  alignAxes(imuSample, magSample, haveMag);
 
   imu_ = imuSample;
   if (haveMag) mag_ = magSample;
@@ -44,23 +61,16 @@ I2CBus::Status Tracker::update() {
 
   // Guard against the seed step (dt == 0) and pathological gaps (> 1 s).
   if (dt > 0.0f && dt < 1.0f) {
-    const float gyroRadAligned[3] = {
-       -imuSample.gyro_dps[0] * kDegToRad,
-       -imuSample.gyro_dps[1] * kDegToRad,
-       -imuSample.gyro_dps[2] * kDegToRad,
+    const float gyroRad[3] = {
+      imuSample.gyro_dps[0] * kDegToRad,
+      imuSample.gyro_dps[1] * kDegToRad,
+      imuSample.gyro_dps[2] * kDegToRad,
     };
 
     if (haveMag) {
-      // With the gyro sign convention used by the AHRS, the QMC6309 field
-      // dynamics match the raw QMC axis order/signs.
-      const float magAligned[3] = {
-        magSample.mag_g[0],
-        magSample.mag_g[1],
-        magSample.mag_g[2],
-      };
-      fusion_.update(gyroRadAligned, imuSample.accel_g, magAligned, dt);
+      fusion_.update(gyroRad, imuSample.accel_g, magSample.mag_g, dt);
     } else {
-      fusion_.updateIMU(gyroRadAligned, imuSample.accel_g, dt);
+      fusion_.updateIMU(gyroRad, imuSample.accel_g, dt);
     }
   }
 
@@ -81,6 +91,21 @@ void Tracker::applyCalibration(ImuSample& imuSample, MagSample& magSample,
     for (int i = 0; i < 3; ++i) {
       magSample.mag_g[i] = (magSample.mag_g[i] - cal_.magOffset[i]) * cal_.magScale[i];
     }
+  }
+}
+
+void Tracker::alignAxes(ImuSample& imuSample, MagSample& magSample,
+                        bool haveMag) const {
+  applyAxisMap(imuSample.accel_g, kAccelAxisSource, kAccelAxisSign);
+  applyAxisMap(imuSample.gyro_dps, kGyroAxisSource, kGyroAxisSign);
+  if (haveMag) {
+    applyAxisMap(magSample.mag_g, kMagAxisSource, kMagAxisSign);
+  }
+
+  applyAxisMap(imuSample.accel_g, kBodyAxisSource, kBodyAxisSign);
+  applyAxisMap(imuSample.gyro_dps, kBodyAxisSource, kBodyAxisSign);
+  if (haveMag) {
+    applyAxisMap(magSample.mag_g, kBodyAxisSource, kBodyAxisSign);
   }
 }
 

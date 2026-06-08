@@ -21,6 +21,35 @@
 // --- QMC6309 magnetometer ---------------------------------------------------
 #define TRACKER_QMC_ADDR 0x7C
 
+// --- Sensor axis alignment --------------------------------------------------
+// First align each chip into the module/PCB frame. Use these only when the IMU
+// and magnetometer are mounted with different axis directions.
+//
+// AXIS_MAP says where output X/Y/Z comes from: 0 = input X, 1 = input Y,
+// 2 = input Z. AXIS_SIGN says whether each output axis is inverted:
+// 1 = keep direction, -1 = invert direction.
+//
+// Example: output {X, Y, Z} = {-input Y, input Z, input X}
+//   #define TRACKER_BODY_AXIS_MAP  {1, 2, 0}
+//   #define TRACKER_BODY_AXIS_SIGN {-1, 1, 1}
+//
+// Gyro defaults keep the old AHRS sign convention, which previously lived in
+// Tracker.cpp as a separate hard-coded inversion.
+#define TRACKER_ACCEL_AXIS_MAP  {0, 1, 2}
+#define TRACKER_ACCEL_AXIS_SIGN {1, 1, 1}
+
+#define TRACKER_GYRO_AXIS_MAP  {0, 1, 2}
+#define TRACKER_GYRO_AXIS_SIGN {-1, -1, -1}
+
+#define TRACKER_MAG_AXIS_MAP  {0, 1, 2}
+#define TRACKER_MAG_AXIS_SIGN {1, 1, 1}
+
+// Then remap the whole tracker/body frame after all chips are aligned. This is
+// the normal knob for rotating the mounted tracker by one or more 90-degree
+// turns. It applies to accel, gyro, and mag together.
+#define TRACKER_BODY_AXIS_MAP  {0, 1, 2}
+#define TRACKER_BODY_AXIS_SIGN {1, 1, 1}
+
 // --- Sensor power -----------------------------------------------------------
 // Stacked module powered from GPIOs instead of a dedicated rail.
 #define SENSOR_VCC 17  // P0.17 driven high

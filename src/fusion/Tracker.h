@@ -53,7 +53,7 @@ public:
   // --- Fused output ---------------------------------------------------------
   const Orientation& orientation() const { return orientation_; }
 
-  // --- Latest raw-ish samples (calibrated + scaled to physical units) -------
+  // --- Latest samples (calibrated + scaled + axis-aligned) ------------------
   const ImuSample& imu() const { return imu_; }
   const MagSample& mag() const { return mag_; }
   bool magValid() const { return magValid_; }  // mag() refreshed this update
@@ -77,6 +77,7 @@ public:
 
 private:
   void applyCalibration(ImuSample& imuSample, MagSample& magSample, bool haveMag) const;
+  void alignAxes(ImuSample& imuSample, MagSample& magSample, bool haveMag) const;
 
   ICM45686&  imuDev_;
   QMC6309&   magDev_;
