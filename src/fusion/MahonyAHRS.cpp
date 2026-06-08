@@ -27,9 +27,11 @@ void MahonyAHRS::updateIMU(const float gyro[3], const float accel[3], float dt) 
     const float q0 = q_[0], q1 = q_[1], q2 = q_[2], q3 = q_[3];
 
     // Estimated direction of gravity (half the body-frame gravity vector).
-    const float halfvx = q1 * q3 - q0 * q2;
-    const float halfvy = q0 * q1 + q2 * q3;
-    const float halfvz = q0 * q0 - 0.5f + q3 * q3;
+    // Y-up world frame: reference gravity points along +Y, so this is the
+    // second row of the body->world rotation matrix (halved).
+    const float halfvx = q1 * q2 + q0 * q3;
+    const float halfvy = 0.5f - q1 * q1 - q3 * q3;
+    const float halfvz = q2 * q3 - q0 * q1;
 
     // Error = measured gravity x estimated gravity.
     float halfex = ay * halfvz - az * halfvy;
@@ -79,25 +81,28 @@ void MahonyAHRS::update(const float gyro[3], const float accel[3],
   const float q0 = q_[0], q1 = q_[1], q2 = q_[2], q3 = q_[3];
 
   // Reference direction of Earth's magnetic field, rotated into the earth
-  // frame, then flattened to the horizontal (bx) + vertical (bz) components.
+  // frame. Y-up world: vertical is along +Y (hy), the horizontal plane is X-Z.
+  // Flatten the measured field to a horizontal magnitude (bx, placed on +X) and
+  // a vertical component (by, along +Y).
   const float hx = 2.0f * (mx * (0.5f - q2 * q2 - q3 * q3) +
                            my * (q1 * q2 - q0 * q3) +
                            mz * (q1 * q3 + q0 * q2));
   const float hy = 2.0f * (mx * (q1 * q2 + q0 * q3) +
                            my * (0.5f - q1 * q1 - q3 * q3) +
                            mz * (q2 * q3 - q0 * q1));
-  const float bx = sqrtf(hx * hx + hy * hy);
-  const float bz = 2.0f * (mx * (q1 * q3 - q0 * q2) +
+  const float hz = 2.0f * (mx * (q1 * q3 - q0 * q2) +
                            my * (q2 * q3 + q0 * q1) +
                            mz * (0.5f - q1 * q1 - q2 * q2));
+  const float bx = sqrtf(hx * hx + hz * hz);  // horizontal magnitude (X-Z plane)
+  const float by = hy;                        // vertical component (along +Y)
 
-  // Estimated directions of gravity and magnetic field (half vectors).
-  const float halfvx = q1 * q3 - q0 * q2;
-  const float halfvy = q0 * q1 + q2 * q3;
-  const float halfvz = q0 * q0 - 0.5f + q3 * q3;
-  const float halfwx = bx * (0.5f - q2 * q2 - q3 * q3) + bz * (q1 * q3 - q0 * q2);
-  const float halfwy = bx * (q1 * q2 - q0 * q3) + bz * (q0 * q1 + q2 * q3);
-  const float halfwz = bx * (q0 * q2 + q1 * q3) + bz * (0.5f - q1 * q1 - q2 * q2);
+  // Estimated directions of gravity and magnetic field (half vectors), Y-up.
+  const float halfvx = q1 * q2 + q0 * q3;
+  const float halfvy = 0.5f - q1 * q1 - q3 * q3;
+  const float halfvz = q2 * q3 - q0 * q1;
+  const float halfwx = bx * (0.5f - q2 * q2 - q3 * q3) + by * (q1 * q2 + q0 * q3);
+  const float halfwy = bx * (q1 * q2 - q0 * q3) + by * (0.5f - q1 * q1 - q3 * q3);
+  const float halfwz = bx * (q1 * q3 + q0 * q2) + by * (q2 * q3 - q0 * q1);
 
   // Error = sum of cross products (measured x estimated) for both references.
   float halfex = (ay * halfvz - az * halfvy) + (my * halfwz - mz * halfwy);

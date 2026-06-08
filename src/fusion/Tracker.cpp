@@ -74,8 +74,15 @@ I2CBus::Status Tracker::update() {
     }
   }
 
+  // The fusion runs in a right-handed Y-up world, but the HTML viewer renders
+  // on a left-handed CSS screen (Y points down). That handedness flip reverses
+  // rotations about every axis except the reflection axis (X). Conjugating by
+  // 180 deg about X — i.e. negating y and z — matches the viewer's convention.
   const float* q = fusion_.quaternion();
-  for (int i = 0; i < 4; ++i) orientation_.quaternion[i] = q[i];
+  orientation_.quaternion[0] = q[0];
+  orientation_.quaternion[1] = q[1];
+  orientation_.quaternion[2] = -q[2];
+  orientation_.quaternion[3] = -q[3];
   fusion_.eulerDeg(orientation_.roll_deg, orientation_.pitch_deg, orientation_.yaw_deg);
 
   return I2CBus::Status::Ok;

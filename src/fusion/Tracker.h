@@ -10,11 +10,16 @@
 #include "config.h"
 
 // Fused orientation output: the integrated tilt/heading of the device.
+// The world frame is Y-up (+X = right, +Y = up, +Z = back / toward viewer),
+// matching the HTML test console, so a level tracker reports the identity
+// quaternion. roll/pitch/yaw are a raw X-Y-Z Tait-Bryan decomposition of the
+// same quaternion (kept as the inverse of the receiver's eulerToQuat); only the
+// quaternion is normally transmitted.
 struct Orientation {
-  float quaternion[4];  // w, x, y, z
-  float roll_deg;       // rotation about X (forward)
-  float pitch_deg;      // rotation about Y (right)
-  float yaw_deg;        // rotation about Z (down) — heading
+  float quaternion[4];  // w, x, y, z  (Y-up world frame)
+  float roll_deg;       // rotation about X
+  float pitch_deg;      // rotation about Y
+  float yaw_deg;        // rotation about Z
 };
 
 // High-level API over the 9-DoF sensor module.

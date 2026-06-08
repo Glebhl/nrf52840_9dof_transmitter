@@ -47,8 +47,15 @@
 // Then remap the whole tracker/body frame after all chips are aligned. This is
 // the normal knob for rotating the mounted tracker by one or more 90-degree
 // turns. It applies to accel, gyro, and mag together.
-#define TRACKER_BODY_AXIS_MAP  {0, 1, 2}
-#define TRACKER_BODY_AXIS_SIGN {1, 1, 1}
+//
+// The fusion now runs in a Y-up world frame (see MahonyAHRS.cpp), matching the
+// HTML test console: +X = right, +Y = up, +Z = toward viewer (back). This map
+// rotates the raw chip frame (chip +X = forward, +Y = left, +Z = up) into that
+// body frame so a level tracker reports the identity quaternion:
+//   body +X (right) = -chip Y     body +Y (up) = +chip Z     body +Z (back) = -chip X
+// If forward/right end up swapped for your mounting, this is the knob to tweak.
+#define TRACKER_BODY_AXIS_MAP  {1, 2, 0}
+#define TRACKER_BODY_AXIS_SIGN {-1, 1, -1}
 
 // --- Sensor power -----------------------------------------------------------
 // Stacked module powered from GPIOs instead of a dedicated rail.
