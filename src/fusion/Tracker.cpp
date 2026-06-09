@@ -24,7 +24,8 @@ void applyTransform(float v[3], const AxisTransform& t) {
 bool Tracker::begin() {
   if (!imuDev_.begin()) return false;
   if (!magDev_.begin()) return false;
-  orientation_ = {{1.0f, 0.0f, 0.0f, 0.0f}, 0.0f, 0.0f, 0.0f};
+  quaternion_ = {1.0f, 0.0f, 0.0f, 0.0f};
+  euler_ = {0.0f, 0.0f, 0.0f};
   magValid_ = false;
   return true;
 }
@@ -49,7 +50,8 @@ I2CBus::Status Tracker::update() {
   magValid_ = haveMag;
 
   // Placeholder values for telemetry fields that used to be produced by orientation estimation.
-  orientation_ = {{1.0f, 0.0f, 0.0f, 0.0f}, 0.0f, 0.0f, 0.0f};
+  quaternion_ = {1.0f, 0.0f, 0.0f, 0.0f};
+  euler_ = {0.0f, 0.0f, 0.0f};
 
   return I2CBus::Status::Ok;
 }

@@ -8,28 +8,35 @@
 #include "Calibration.h"
 #include "config.h"
 
-// Temporary orientation output kept for the telemetry fields read by main.cpp.
-// With orientation estimation removed, Tracker reports a neutral pose until a new
-// orientation source is added.
-struct Orientation {
-  float quaternion[4];  // w, x, y, z
-  float roll_deg;       // rotation about X
-  float pitch_deg;      // rotation about Y
-  float yaw_deg;        // rotation about Z
+// Temporary pose outputs kept for the telemetry fields read by main.cpp.
+// With orientation estimation removed, Tracker reports neutral placeholders
+// until a new orientation source is added.
+struct Quaternion {
+  float w;
+  float x;
+  float y;
+  float z;
+};
+
+struct EulerAngles {
+  float roll_deg;   // rotation about X
+  float pitch_deg;  // rotation about Y
+  float yaw_deg;    // rotation about Z
 };
 
 // High-level API over the 9-DoF sensor module.
 //
 // Owns the IMU and magnetometer drivers plus a calibration set. The intended
 // use is a single call to update() per loop iteration, after which the latest
-// calibrated imu()/mag() samples are available. orientation() is currently a
-// neutral placeholder for telemetry compatibility:
+// calibrated imu()/mag() samples are available. quaternion() and euler() are
+// currently neutral placeholders for telemetry compatibility:
 //
 //   Tracker tracker(imu, mag);
 //   tracker.begin();
 //   ...
 //   tracker.update();
-//   const Orientation& o = tracker.orientation();   // placeholder pose
+//   const Quaternion& q = tracker.quaternion();      // placeholder quaternion
+//   const EulerAngles& e = tracker.euler();          // placeholder angles
 //   const ImuSample&   a = tracker.imu();            // calibrated accel/gyro
 //
 // Calibration routines (gyro bias, hard/soft-iron mag) refine the result and
@@ -46,8 +53,9 @@ public:
   // this update.
   I2CBus::Status update();
 
-  // --- Fused output ---------------------------------------------------------
-  const Orientation& orientation() const { return orientation_; }
+  // --- Placeholder outputs --------------------------------------------------
+  const Quaternion& quaternion() const { return quaternion_; }
+  const EulerAngles& euler() const { return euler_; }
 
   // --- Latest samples (calibrated + scaled + axis-aligned) ------------------
   const ImuSample& imu() const { return imu_; }
@@ -79,7 +87,8 @@ private:
   QMC6309&   magDev_;
   Calibration cal_;
 
-  Orientation orientation_{{1.0f, 0.0f, 0.0f, 0.0f}, 0.0f, 0.0f, 0.0f};
+  Quaternion  quaternion_{1.0f, 0.0f, 0.0f, 0.0f};
+  EulerAngles euler_{0.0f, 0.0f, 0.0f};
   ImuSample   imu_{};
   MagSample   mag_{};
   bool        magValid_ = false;

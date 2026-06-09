@@ -158,7 +158,12 @@ static void sendTelemetry() {
   memcpy(&pkt[pos], &g_seq,   sizeof(g_seq));   pos += sizeof(g_seq);
   g_seq++;
 
-  const Orientation& o = tracker.orientation();
+#if SEND_QUAT
+  const Quaternion& q = tracker.quaternion();
+#endif
+#if SEND_RPY || TRACKER_SERIAL_DEBUG
+  const EulerAngles& e = tracker.euler();
+#endif
 #if SEND_ACCEL || SEND_GYRO || SEND_TEMP
   const ImuSample&   s = tracker.imu();
 #endif
@@ -167,10 +172,11 @@ static void sendTelemetry() {
 #endif
 
 #if SEND_QUAT
-  putFloats(pkt, pos, o.quaternion, 4);
+  const float quat[4] = { q.w, q.x, q.y, q.z };
+  putFloats(pkt, pos, quat, 4);
 #endif
 #if SEND_RPY
-  const float rpy[3] = { o.roll_deg, o.pitch_deg, o.yaw_deg };
+  const float rpy[3] = { e.roll_deg, e.pitch_deg, e.yaw_deg };
   putFloats(pkt, pos, rpy, 3);
 #endif
 #if SEND_ACCEL
@@ -191,9 +197,9 @@ static void sendTelemetry() {
 #if TRACKER_SERIAL_DEBUG
   Serial.print("TX seq="); Serial.print(g_seq);
   Serial.print(" RPY ");
-  Serial.print(o.roll_deg, 2);  Serial.print(", ");
-  Serial.print(o.pitch_deg, 2); Serial.print(", ");
-  Serial.println(o.yaw_deg, 2);
+  Serial.print(e.roll_deg, 2);  Serial.print(", ");
+  Serial.print(e.pitch_deg, 2); Serial.print(", ");
+  Serial.println(e.yaw_deg, 2);
 #endif
 }
 
