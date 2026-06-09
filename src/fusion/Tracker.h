@@ -6,11 +6,9 @@
 #include "ICM45686.h"
 #include "QMC6309.h"
 #include "Calibration.h"
+#include "Fusion.h"
 #include "config.h"
 
-// Temporary pose outputs kept for the telemetry fields read by main.cpp.
-// With orientation estimation removed, Tracker reports neutral placeholders
-// until a new orientation source is added.
 struct Quaternion {
   float w;
   float x;
@@ -28,15 +26,15 @@ struct EulerAngles {
 //
 // Owns the IMU and magnetometer drivers plus a calibration set. The intended
 // use is a single call to update() per loop iteration, after which the latest
-// calibrated imu()/mag() samples are available. quaternion() and euler() are
-// currently neutral placeholders for telemetry compatibility:
+// calibrated imu()/mag() samples and estimated quaternion()/euler() pose are
+// available:
 //
 //   Tracker tracker(imu, mag);
 //   tracker.begin();
 //   ...
 //   tracker.update();
-//   const Quaternion& q = tracker.quaternion();      // placeholder quaternion
-//   const EulerAngles& e = tracker.euler();          // placeholder angles
+//   const Quaternion& q = tracker.quaternion();      // estimated quaternion
+//   const EulerAngles& e = tracker.euler();          // estimated angles
 //   const ImuSample&   a = tracker.imu();            // calibrated accel/gyro
 //
 // Calibration routines (gyro bias, hard/soft-iron mag) refine the result and
@@ -53,9 +51,13 @@ public:
   // this update.
   I2CBus::Status update();
 
-  // --- Placeholder outputs --------------------------------------------------
+  // --- Estimated outputs ----------------------------------------------------
   const Quaternion& quaternion() const { return quaternion_; }
   const EulerAngles& euler() const { return euler_; }
+  FusionAhrsInternalStates fusionInternalStates() const {
+    return FusionAhrsGetInternalStates(&fusion_);
+  }
+  FusionAhrsFlags fusionFlags() const { return FusionAhrsGetFlags(&fusion_); }
 
   // --- Latest samples (calibrated + scaled + axis-aligned) ------------------
   const ImuSample& imu() const { return imu_; }
@@ -85,6 +87,7 @@ private:
 
   ICM45686&  imuDev_;
   QMC6309&   magDev_;
+  FusionAhrs fusion_;
   Calibration cal_;
 
   Quaternion  quaternion_{1.0f, 0.0f, 0.0f, 0.0f};
@@ -92,6 +95,9 @@ private:
   ImuSample   imu_{};
   MagSample   mag_{};
   bool        magValid_ = false;
+
+  uint32_t lastUpdateUs_  = 0;
+  bool     haveTimestamp_ = false;
 
   // Min/max accumulators for the in-progress magnetometer calibration.
   bool  magCalActive_ = false;

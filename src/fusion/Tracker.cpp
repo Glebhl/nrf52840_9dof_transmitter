@@ -24,8 +24,20 @@ void applyTransform(float v[3], const AxisTransform& t) {
 bool Tracker::begin() {
   if (!imuDev_.begin()) return false;
   if (!magDev_.begin()) return false;
+  FusionAhrsInitialise(&fusion_);
+  const FusionAhrsSettings settings = {
+    .convention = TRACKER_FUSION_CONVENTION,
+    .gain = TRACKER_FUSION_GAIN,
+    .gyroscopeRange = static_cast<float>(TRACKER_GYRO_FSR_DPS),
+    .accelerationRejection = TRACKER_FUSION_ACCEL_REJECTION_DEG,
+    .magneticRejection = TRACKER_FUSION_MAG_REJECTION_DEG,
+    .recoveryTriggerPeriod =
+        TRACKER_FUSION_RECOVERY_MS / TELEMETRY_SEND_INTERVAL_MS,
+  };
+  FusionAhrsSetSettings(&fusion_, &settings);
   quaternion_ = {1.0f, 0.0f, 0.0f, 0.0f};
   euler_ = {0.0f, 0.0f, 0.0f};
+  haveTimestamp_ = false;
   magValid_ = false;
   return true;
 }
@@ -49,9 +61,51 @@ I2CBus::Status Tracker::update() {
   if (haveMag) mag_ = magSample;
   magValid_ = haveMag;
 
-  // Placeholder values for telemetry fields that used to be produced by orientation estimation.
-  quaternion_ = {1.0f, 0.0f, 0.0f, 0.0f};
-  euler_ = {0.0f, 0.0f, 0.0f};
+  // Time step from the wall clock; uint32 subtraction handles micros() wrap.
+  const uint32_t now = micros();
+  float dt = 0.0f;
+  if (haveTimestamp_) {
+    dt = (now - lastUpdateUs_) * 1e-6f;
+  }
+  lastUpdateUs_ = now;
+  haveTimestamp_ = true;
+
+  // Guard against the seed step (dt == 0) and pathological gaps (> 1 s).
+  if (dt > 0.0f && dt < 1.0f) {
+    const FusionVector gyroscope = {
+      .axis = {
+        .x = imuSample.gyro_dps[0],
+        .y = imuSample.gyro_dps[1],
+        .z = imuSample.gyro_dps[2],
+      },
+    };
+    const FusionVector accelerometer = {
+      .axis = {
+        .x = imuSample.accel_g[0],
+        .y = imuSample.accel_g[1],
+        .z = imuSample.accel_g[2],
+      },
+    };
+
+    if (haveMag) {
+      const FusionVector magnetometer = {
+        .axis = {
+          .x = magSample.mag_g[0],
+          .y = magSample.mag_g[1],
+          .z = magSample.mag_g[2],
+        },
+      };
+      FusionAhrsUpdate(&fusion_, gyroscope, accelerometer, magnetometer, dt);
+    } else {
+      FusionAhrsUpdateNoMagnetometer(&fusion_, gyroscope, accelerometer, dt);
+    }
+
+    const FusionQuaternion q = FusionAhrsGetQuaternion(&fusion_);
+    quaternion_ = {q.element.w, q.element.x, q.element.y, q.element.z};
+
+    const FusionEuler e = FusionQuaternionToEuler(q);
+    euler_ = {e.angle.roll, e.angle.pitch, e.angle.yaw};
+  }
 
   return I2CBus::Status::Ok;
 }
@@ -111,6 +165,10 @@ bool Tracker::calibrateGyro(uint16_t samples) {
     cal_.gyroBiasDps[a] = (float)(sum[a] / got);
   }
 
+  FusionAhrsRestart(&fusion_);
+  quaternion_ = {1.0f, 0.0f, 0.0f, 0.0f};
+  euler_ = {0.0f, 0.0f, 0.0f};
+  haveTimestamp_ = false;
   return true;
 }
 

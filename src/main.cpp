@@ -195,11 +195,32 @@ static void sendTelemetry() {
   radio.send(pkt, pos);
 
 #if TRACKER_SERIAL_DEBUG
+  const FusionAhrsInternalStates fusionState = tracker.fusionInternalStates();
+  const FusionAhrsFlags fusionFlags = tracker.fusionFlags();
+
   Serial.print("TX seq="); Serial.print(g_seq);
   Serial.print(" RPY ");
   Serial.print(e.roll_deg, 2);  Serial.print(", ");
   Serial.print(e.pitch_deg, 2); Serial.print(", ");
-  Serial.println(e.yaw_deg, 2);
+  Serial.print(e.yaw_deg, 2);
+  Serial.print(" accErr=");
+  Serial.print(fusionState.accelerationError, 2);
+  Serial.print(" accIgnored=");
+  Serial.print(fusionState.accelerometerIgnored);
+  Serial.print(" accRecovery=");
+  Serial.print(fusionState.accelerationRecoveryTrigger, 2);
+  Serial.print(" magValid=");
+  Serial.print(tracker.magValid());
+  Serial.print(" magErr=");
+  Serial.print(fusionState.magneticError, 2);
+  Serial.print(" magIgnored=");
+  Serial.print(fusionState.magnetometerIgnored);
+  Serial.print(" magRecovery=");
+  Serial.print(fusionState.magneticRecoveryTrigger, 2);
+  Serial.print(" startup=");
+  Serial.print(fusionFlags.startup);
+  Serial.print(" rateRecovery=");
+  Serial.println(fusionFlags.angularRateRecovery);
 #endif
 }
 

@@ -58,6 +58,15 @@
 // Magnetometer hard/soft-iron: how long to collect samples while rotating.
 #define TRACKER_MAG_CAL_MS 15000UL
 
+// --- Orientation estimation (x-io Fusion) -----------------------------------
+// FusionConventionNwu is the library default: +X North, +Y West, +Z Up.
+// No output coordinate conversion is applied by Tracker.
+#define TRACKER_FUSION_CONVENTION FusionConventionNwu
+#define TRACKER_FUSION_GAIN 0.5f
+#define TRACKER_FUSION_ACCEL_REJECTION_DEG 10.0f
+#define TRACKER_FUSION_MAG_REJECTION_DEG   10.0f
+#define TRACKER_FUSION_RECOVERY_MS         5000UL
+
 // --- Persistent storage (internal flash via LittleFS) -----------------------
 // Calibration is saved here so it survives power cycles. Key is the record name
 // on the internal filesystem; bump the version whenever the Calibration struct
@@ -106,7 +115,7 @@
 // Interval for sending data to the receiver in milliseconds 
 #define TELEMETRY_SEND_INTERVAL_MS 20
 
-// Optional: also mirror the placeholder RPY to USB serial as text for debugging.
+// Optional: also mirror the estimated RPY to USB serial as text for debugging.
 // Leave 0 in normal operation — the radio is the real output path.
-#define TRACKER_SERIAL_DEBUG 0
+#define TRACKER_SERIAL_DEBUG 1
 
