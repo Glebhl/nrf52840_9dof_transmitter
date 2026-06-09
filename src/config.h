@@ -113,9 +113,9 @@
 #define SEND_MAG   0  // mag x,y,z [Gauss]       (3 floats)
 
 // Interval for sending data to the receiver in milliseconds 
-#define TELEMETRY_SEND_INTERVAL_MS 20
+#define TELEMETRY_SEND_INTERVAL_MS 33
 
 // Optional: also mirror the estimated RPY to USB serial as text for debugging.
 // Leave 0 in normal operation — the radio is the real output path.
-#define TRACKER_SERIAL_DEBUG 1
+#define TRACKER_SERIAL_DEBUG 0
 
