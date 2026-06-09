@@ -9,33 +9,9 @@ struct AxisTransform {
   int8_t  sign[3];
 };
 
-// Fold the per-sensor map and the shared body map into one remap, so each
-// sample is rotated in a single pass instead of two. The result is identical
-// to applying the per-sensor map and then the body map in sequence:
-//   v -> body(sensor(v))
-AxisTransform compose(const uint8_t sSrc[3], const int8_t sSign[3],
-                      const uint8_t bSrc[3], const int8_t bSign[3]) {
-  AxisTransform t{};
-  for (int i = 0; i < 3; ++i) {
-    const uint8_t mid = bSrc[i];
-    t.src[i]  = sSrc[mid];
-    t.sign[i] = static_cast<int8_t>(sSign[mid] * bSign[i]);
-  }
-  return t;
-}
-
-const uint8_t kAccelSrc[3]  = TRACKER_ACCEL_AXIS_MAP;
-const int8_t  kAccelSign[3] = TRACKER_ACCEL_AXIS_SIGN;
-const uint8_t kGyroSrc[3]   = TRACKER_GYRO_AXIS_MAP;
-const int8_t  kGyroSign[3]  = TRACKER_GYRO_AXIS_SIGN;
-const uint8_t kMagSrc[3]    = TRACKER_MAG_AXIS_MAP;
-const int8_t  kMagSign[3]   = TRACKER_MAG_AXIS_SIGN;
-const uint8_t kBodySrc[3]   = TRACKER_BODY_AXIS_MAP;
-const int8_t  kBodySign[3]  = TRACKER_BODY_AXIS_SIGN;
-
-const AxisTransform kAccelXf = compose(kAccelSrc, kAccelSign, kBodySrc, kBodySign);
-const AxisTransform kGyroXf  = compose(kGyroSrc, kGyroSign, kBodySrc, kBodySign);
-const AxisTransform kMagXf   = compose(kMagSrc, kMagSign, kBodySrc, kBodySign);
+const AxisTransform kAccelXf = {TRACKER_ACCEL_AXIS_MAP, TRACKER_ACCEL_AXIS_SIGN};
+const AxisTransform kGyroXf  = {TRACKER_GYRO_AXIS_MAP, TRACKER_GYRO_AXIS_SIGN};
+const AxisTransform kMagXf   = {TRACKER_MAG_AXIS_MAP, TRACKER_MAG_AXIS_SIGN};
 
 void applyTransform(float v[3], const AxisTransform& t) {
   const float in[3] = {v[0], v[1], v[2]};
