@@ -5,18 +5,14 @@
 #include "I2CBus.h"
 #include "ICM45686.h"
 #include "QMC6309.h"
-#include "MahonyAHRS.h"
 #include "Calibration.h"
 #include "config.h"
 
-// Fused orientation output: the integrated tilt/heading of the device.
-// The world frame is SteamVR/OpenVR Y-up (+X = right, +Y = up,
-// +Z = back / -Z forward), so a level tracker reports the identity
-// quaternion. roll/pitch/yaw are a raw X-Y-Z Tait-Bryan decomposition of the
-// same quaternion (kept as the inverse of the receiver's eulerToQuat); only the
-// quaternion is normally transmitted.
+// Temporary orientation output kept for the telemetry fields read by main.cpp.
+// With orientation estimation removed, Tracker reports a neutral pose until a new
+// orientation source is added.
 struct Orientation {
-  float quaternion[4];  // w, x, y, z  (SteamVR/OpenVR world frame)
+  float quaternion[4];  // w, x, y, z
   float roll_deg;       // rotation about X
   float pitch_deg;      // rotation about Y
   float yaw_deg;        // rotation about Z
@@ -24,35 +20,30 @@ struct Orientation {
 
 // High-level API over the 9-DoF sensor module.
 //
-// Owns the IMU and magnetometer drivers, a calibration set, and a Mahony fusion
-// filter. The intended use is a single call to update() per loop iteration,
-// after which the fused orientation() and the latest calibrated imu()/mag()
-// samples are all available:
+// Owns the IMU and magnetometer drivers plus a calibration set. The intended
+// use is a single call to update() per loop iteration, after which the latest
+// calibrated imu()/mag() samples are available. orientation() is currently a
+// neutral placeholder for telemetry compatibility:
 //
 //   Tracker tracker(imu, mag);
 //   tracker.begin();
 //   ...
 //   tracker.update();
-//   const Orientation& o = tracker.orientation();   // integrated tilt
+//   const Orientation& o = tracker.orientation();   // placeholder pose
 //   const ImuSample&   a = tracker.imu();            // calibrated accel/gyro
 //
 // Calibration routines (gyro bias, hard/soft-iron mag) refine the result and
 // can be triggered at runtime.
 class Tracker {
 public:
-  Tracker(ICM45686& imu, QMC6309& mag,
-          const MahonyAHRS::Gains& gains =
-              MahonyAHRS::Gains(TRACKER_FUSION_KP, TRACKER_FUSION_KI))
-      : imuDev_(imu), magDev_(mag), fusion_(gains) {}
+  Tracker(ICM45686& imu, QMC6309& mag) : imuDev_(imu), magDev_(mag) {}
 
-  // Initialise both sensors and reset the filter. Returns false if either
-  // device fails to come up.
+  // Initialise both sensors. Returns false if either device fails to come up.
   bool begin();
 
-  // Read both sensors, apply calibration, and advance the fusion filter by the
-  // wall-clock time elapsed since the previous update(). Returns the IMU read
-  // status; the magnetometer is optional (fusion drops to 6-DoF tilt-only when
-  // it has no fresh sample). The first call only seeds the timestamp.
+  // Read both sensors and apply calibration. Returns the IMU read status; the
+  // magnetometer is optional and magValid() reports whether it refreshed on
+  // this update.
   I2CBus::Status update();
 
   // --- Fused output ---------------------------------------------------------
@@ -86,16 +77,12 @@ private:
 
   ICM45686&  imuDev_;
   QMC6309&   magDev_;
-  MahonyAHRS fusion_;
   Calibration cal_;
 
-  Orientation orientation_{};
+  Orientation orientation_{{1.0f, 0.0f, 0.0f, 0.0f}, 0.0f, 0.0f, 0.0f};
   ImuSample   imu_{};
   MagSample   mag_{};
   bool        magValid_ = false;
-
-  uint32_t lastUpdateUs_  = 0;
-  bool     haveTimestamp_ = false;
 
   // Min/max accumulators for the in-progress magnetometer calibration.
   bool  magCalActive_ = false;

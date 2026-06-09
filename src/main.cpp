@@ -159,8 +159,12 @@ static void sendTelemetry() {
   g_seq++;
 
   const Orientation& o = tracker.orientation();
+#if SEND_ACCEL || SEND_GYRO || SEND_TEMP
   const ImuSample&   s = tracker.imu();
+#endif
+#if SEND_MAG
   const MagSample&   m = tracker.mag();
+#endif
 
 #if SEND_QUAT
   putFloats(pkt, pos, o.quaternion, 4);

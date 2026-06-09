@@ -4,8 +4,8 @@
 
 // Calibration constants for the 9-DoF sensor module.
 //
-// These are applied to the scaled sensor samples before they reach the fusion
-// filter. They survive across runs only if the sketch stores/restores them
+// These are applied to the scaled sensor samples read by Tracker. They survive
+// across runs only if the sketch stores/restores them
 // (e.g. to flash); the Tracker just keeps the active set in RAM.
 //
 //   gyro:  bias removal       g_cal  = g_raw  - gyroBiasDps

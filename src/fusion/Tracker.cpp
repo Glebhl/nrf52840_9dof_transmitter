@@ -3,8 +3,6 @@
 #include <Arduino.h>
 
 namespace {
-constexpr float kDegToRad = 0.017453292519943295f;
-
 // A single axis remap: output axis i = input axis src[i], scaled by sign[i].
 struct AxisTransform {
   uint8_t src[3];
@@ -50,8 +48,7 @@ void applyTransform(float v[3], const AxisTransform& t) {
 bool Tracker::begin() {
   if (!imuDev_.begin()) return false;
   if (!magDev_.begin()) return false;
-  fusion_.reset();
-  haveTimestamp_ = false;
+  orientation_ = {{1.0f, 0.0f, 0.0f, 0.0f}, 0.0f, 0.0f, 0.0f};
   magValid_ = false;
   return true;
 }
@@ -75,39 +72,8 @@ I2CBus::Status Tracker::update() {
   if (haveMag) mag_ = magSample;
   magValid_ = haveMag;
 
-  // Time step from the wall clock; uint32 subtraction handles micros() wrap.
-  const uint32_t now = micros();
-  float dt = 0.0f;
-  if (haveTimestamp_) {
-    dt = (now - lastUpdateUs_) * 1e-6f;
-  }
-  lastUpdateUs_ = now;
-  haveTimestamp_ = true;
-
-  // Guard against the seed step (dt == 0) and pathological gaps (> 1 s).
-  if (dt > 0.0f && dt < 1.0f) {
-    const float gyroRad[3] = {
-      imuSample.gyro_dps[0] * kDegToRad,
-      imuSample.gyro_dps[1] * kDegToRad,
-      imuSample.gyro_dps[2] * kDegToRad,
-    };
-
-    if (haveMag) {
-      fusion_.update(gyroRad, imuSample.accel_g, magSample.mag_g, dt);
-    } else {
-      fusion_.updateIMU(gyroRad, imuSample.accel_g, dt);
-    }
-  }
-
-  // Convert the fused body quaternion to the SteamVR/OpenVR pose convention.
-  // Observed SteamVR remap: axes line up with {z, x, y}; roll/yaw signs are
-  // inverted relative to the fused body frame, while pitch already matches.
-  const float* q = fusion_.quaternion();
-  orientation_.quaternion[0] = q[0];
-  orientation_.quaternion[1] = q[3];
-  orientation_.quaternion[2] = q[1];
-  orientation_.quaternion[3] = q[2];
-  fusion_.eulerDeg(orientation_.roll_deg, orientation_.pitch_deg, orientation_.yaw_deg);
+  // Placeholder values for telemetry fields that used to be produced by orientation estimation.
+  orientation_ = {{1.0f, 0.0f, 0.0f, 0.0f}, 0.0f, 0.0f, 0.0f};
 
   return I2CBus::Status::Ok;
 }
@@ -167,8 +133,6 @@ bool Tracker::calibrateGyro(uint16_t samples) {
     cal_.gyroBiasDps[a] = (float)(sum[a] / got);
   }
 
-  fusion_.reset();
-  haveTimestamp_ = false;
   return true;
 }
 

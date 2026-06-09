@@ -57,5 +57,5 @@ python gen_uf2.py
 ### Configuration
 
 Almost everything is tunable in [`src/config.h`](src/config.h): I²C pins, sensor
-full-scale ranges, fusion gains (`Kp`/`Ki`), calibration sample counts, button
+full-scale ranges, calibration sample counts, button
 timings, telemetry rate, and which fields are transmitted.

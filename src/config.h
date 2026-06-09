@@ -33,8 +33,6 @@
 //   #define TRACKER_BODY_AXIS_MAP  {1, 2, 0}
 //   #define TRACKER_BODY_AXIS_SIGN {-1, 1, 1}
 //
-// Gyro defaults keep the old AHRS sign convention, which previously lived in
-// Tracker.cpp as a separate hard-coded inversion.
 #define TRACKER_ACCEL_AXIS_MAP  {0, 1, 2}
 #define TRACKER_ACCEL_AXIS_SIGN {1, 1, 1}
 
@@ -48,10 +46,8 @@
 // the normal knob for rotating the mounted tracker by one or more 90-degree
 // turns. It applies to accel, gyro, and mag together.
 //
-// The fusion now runs in the SteamVR/OpenVR Y-up world frame (see
-// MahonyAHRS.cpp): +X = right, +Y = up, +Z = back (-Z forward). This map
-// rotates the raw chip frame (chip +X = forward, +Y = left, +Z = up) into that
-// body frame so a level tracker reports the identity quaternion:
+// This map rotates the raw chip frame (chip +X = forward, +Y = left, +Z = up)
+// into the desired body frame:
 //   body +X (right) = -chip Y     body +Y (up) = +chip Z     body +Z (back) = -chip X
 // If forward/right end up swapped for your mounting, this is the knob to tweak.
 #define TRACKER_BODY_AXIS_MAP  {1, 2, 0}
@@ -64,12 +60,6 @@
 // Set to 1 if the sensor module is powered from GPIOs
 // rather than a dedicated 3V3/GND rail.
 #define ENABLE_STACKED_POWER 1
-
-// --- Fusion (Mahony AHRS) ---------------------------------------------------
-// Kp: how strongly the accel/mag references pull the integrated estimate.
-// Ki: gyro-bias rejection (0 disables the integral term).
-#define TRACKER_FUSION_KP 3.0f
-#define TRACKER_FUSION_KI 0.0f  // 0.05f
 
 // --- Calibration ------------------------------------------------------------
 // Gyro bias: samples averaged while still, and the max peak-to-peak spread
@@ -127,7 +117,7 @@
 // Interval for sending data to the receiver in milliseconds 
 #define TELEMETRY_SEND_INTERVAL_MS 20
 
-// Optional: also mirror the fused RPY to USB serial as text for debugging.
+// Optional: also mirror the placeholder RPY to USB serial as text for debugging.
 // Leave 0 in normal operation — the radio is the real output path.
 #define TRACKER_SERIAL_DEBUG 0
 
