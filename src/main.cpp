@@ -44,6 +44,8 @@ static const uint8_t kTxFlags =
     | (SEND_MAG   ? RadioLink::kMag   : 0);
 
 static uint16_t  g_seq = 0;
+static bool      g_slotArmed = false;
+static uint32_t  g_slotTxAtUs = 0;
 
 static void waitForSerial() {
   Serial.begin(TRACKER_SERIAL_BAUD);
@@ -138,6 +140,31 @@ static void handleSerialCommands() {
       case 'x': case 'X': clearCalibration();       break;
       default: break;
     }
+  }
+}
+
+static void pollBeacon() {
+  uint8_t pkt[RadioLink::kMaxLen];
+  uint8_t len = 0;
+
+  while (radio.poll(pkt, sizeof(pkt), len)) {
+    if (len != RadioLink::kBeaconLen || pkt[0] != RadioLink::kBeaconMagic) {
+      continue;
+    }
+
+    const uint8_t slotCount = pkt[1];
+    uint32_t frameUs;
+    memcpy(&frameUs, &pkt[4], sizeof(frameUs));
+
+    if (TRACKER_TDMA_SLOT >= slotCount || slotCount == 0) {
+      g_slotArmed = false;
+      continue;
+    }
+
+    const uint32_t slotWidthUs = frameUs / slotCount;
+    g_slotTxAtUs = micros() + RadioLink::kTdmaBeaconGuardUs +
+                   slotWidthUs * TRACKER_TDMA_SLOT;
+    g_slotArmed = true;
   }
 }
 
@@ -268,11 +295,13 @@ void setup() {
   loadCalibration();
 
   g_devId = NRF_FICR->DEVICEID[0];
-  radio.beginTx();
-  Serial.print("RADIO TX ready, devId = 0x");
+  radio.beginRx();
+  Serial.print("RADIO TDMA ready, devId = 0x");
   Serial.print(g_devId, HEX);
   Serial.print(", flags = 0x");
-  Serial.println(kTxFlags, HEX);
+  Serial.print(kTxFlags, HEX);
+  Serial.print(", slot = ");
+  Serial.println(TRACKER_TDMA_SLOT);
 
   Serial.println("Button D0: click = gyro+mag cal (auto-save), "
                  "double click = save cal, long press = deep sleep");
@@ -283,6 +312,7 @@ void setup() {
 void loop() {
   handleSerialCommands();
   button.update();
+  pollBeacon();
 
   const I2CBus::Status st = tracker.update();
   if (st != I2CBus::Status::Ok) {
@@ -292,7 +322,9 @@ void loop() {
     return;
   }
 
-  sendTelemetry();
-
-  delay(TELEMETRY_SEND_INTERVAL_MS);
+  pollBeacon();
+  if (g_slotArmed && (int32_t)(micros() - g_slotTxAtUs) >= 0) {
+    g_slotArmed = false;
+    sendTelemetry();
+  }
 }

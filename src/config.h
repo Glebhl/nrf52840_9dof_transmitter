@@ -112,7 +112,12 @@
 #define SEND_TEMP  0  // temperature [C]         (1 float)
 #define SEND_MAG   0  // mag x,y,z [Gauss]       (3 floats)
 
-// Interval for sending data to the receiver in milliseconds 
+// TDMA slot assigned to this tracker. For 5 trackers, flash each unit with a
+// unique value 0..4 so their radio packets never share the same time slot.
+#define TRACKER_TDMA_SLOT 0
+
+// Nominal telemetry frame period, kept for Fusion recovery timing. Radio sends
+// are now paced by receiver beacons rather than delay().
 #define TELEMETRY_SEND_INTERVAL_MS 33
 
 // Optional: also mirror the estimated RPY to USB serial as text for debugging.
