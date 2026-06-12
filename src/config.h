@@ -16,7 +16,7 @@
 // Address select: false = 0x68, true = 0x69.
 #define TRACKER_ICM_ADDR_LSB true
 #define TRACKER_ACCEL_FSR_G  16    // ±g    (supported: 2 / 4 / 8 / 16 / 32)
-#define TRACKER_GYRO_FSR_DPS 1000  // ±dps  (supported: 125 / 250 / 500 / 1000 / 2000 / 4000)
+#define TRACKER_GYRO_FSR_DPS 2000  // ±dps  (supported: 125 / 250 / 500 / 1000 / 2000 / 4000)
 
 // --- QMC6309 magnetometer ---------------------------------------------------
 #define TRACKER_QMC_ADDR 0x7C
